@@ -22,11 +22,21 @@ const PORT = 5000;
 dotenv.config();
 connectDB();
 
-app.use( cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
+app.use(cors({
+  origin: [
+    "http://localhost:5173", 
+    "https://615915.xyz",
+    "https://www.615915.xyz", // Add www subdomain if needed
+    "https://staging.615915.xyz",
+    
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}));
+
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -43,6 +53,12 @@ app.use("/api/razopay", razopayRoute); //Endpoint to Add Money to Student Wallet
 app.use("/api/course", courseRoute);
 app.use('/api/scholarship',scholarshipRoute);
 app.use('/api/teacher',teacherRoute);
+
+app.get('/health', (req, res) => {
+  return res.status(200).json({
+    message: "App is healthy"
+  });
+});
 
 app.listen(PORT, () => {
   console.log(`Server is running on : ${PORT}`);
