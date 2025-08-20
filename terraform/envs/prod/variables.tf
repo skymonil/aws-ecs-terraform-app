@@ -122,3 +122,30 @@ variable "container_cpu" {
 }
 
 # This is an important one that should be added to handle subnet IDs from another module
+
+variable "mongodb_uri" {
+  description = "Value of the DB URI"
+  type = string
+  sensitive = true
+}
+variable "mongodb_uri" {
+  description = "A map of environment variables to pass to the ECS container."
+  type        = string
+  sensitive = true
+}
+
+variable "email_id" {
+  description = "A map of environment variables to pass to the ECS container."
+  type        = string
+  sensitive = true
+}
+variable "email_password" {
+  description = "A map of environment variables to pass to the ECS container."
+  type        = string
+  sensitive = true
+}
+variable "jwt_secret" {
+  description = "A map of environment variables to pass to the ECS container."
+  type        = string
+  sensitive = true
+}

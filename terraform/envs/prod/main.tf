@@ -117,9 +117,9 @@ module "ecs" {
   container_cpu           = var.container_cpu
   ecs_security_group_ids  = [module.vpc.ecs_security_group_ids]
   aws_lb_target_group_arn = aws_lb_target_group.backend_prod.arn
-  mongodb_uri             = "mongodb+srv://m98513313:Mongo123@e-commerce.qrafroh.mongodb.net/caamdb?retryWrites=true&w=majority&appName=E-Commerce"
-  email_id                = "m98513313@gmail.com"
-  email_password          = "dsizuudkjrnmybde"
-  jwt_secret              = "JWT_SECRET"
+  mongodb_uri             = var.mongodb_uri
+  email_id                = var.email_id
+  email_password          = var.email_password
+  jwt_secret              = var.jwt_secret
 }
 
