@@ -101,8 +101,26 @@ variable "aws_lb_target_group_arn" {
   type = string
 }
 
-variable "env_variables" {
+
+
+variable "mongodb_uri" {
   description = "A map of environment variables to pass to the ECS container."
-  type        = map(string)
-  default     = {}
+  type        = string
+  sensitive = true
+}
+
+variable "email_id" {
+  description = "A map of environment variables to pass to the ECS container."
+  type        = string
+  sensitive = true
+}
+variable "email_password" {
+  description = "A map of environment variables to pass to the ECS container."
+  type        = string
+  sensitive = true
+}
+variable "jwt_secret" {
+  description = "A map of environment variables to pass to the ECS container."
+  type        = string
+  sensitive = true
 }

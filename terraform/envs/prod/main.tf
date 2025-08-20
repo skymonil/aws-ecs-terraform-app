@@ -74,11 +74,11 @@ resource "aws_lb_listener_rule" "prod_rule" {
 }
 
 resource "aws_lb_target_group" "backend_prod" {
-  name     = "backend-${var.environment}-tg"
-  port     = 5000
-  protocol = "HTTP"
-  vpc_id   = module.vpc.vpc_id
-target_type = "ip"
+  name        = "backend-${var.environment}-tg"
+  port        = 5000
+  protocol    = "HTTP"
+  vpc_id      = module.vpc.vpc_id
+  target_type = "ip"
   health_check {
     path = "/health"
     port = "5000"
@@ -117,8 +117,9 @@ module "ecs" {
   container_cpu           = var.container_cpu
   ecs_security_group_ids  = [module.vpc.ecs_security_group_ids]
   aws_lb_target_group_arn = aws_lb_target_group.backend_prod.arn
-  env_variables = {
-    MONGODB_URI = "mongodb+srv://m98513313:Mongo123@e-commerce.qrafroh.mongodb.net/caamdb?retryWrites=true&w=majority&appName=E-Commerce"
-  }
+  mongodb_uri             = "mongodb+srv://m98513313:Mongo123@e-commerce.qrafroh.mongodb.net/caamdb?retryWrites=true&w=majority&appName=E-Commerce"
+  email_id                = "m98513313@gmail.com"
+  email_password          = "dsizuudkjrnmybde"
+  jwt_secret              = "JWT_SECRET"
 }
 

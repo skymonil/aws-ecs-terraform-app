@@ -62,10 +62,38 @@ resource "aws_iam_role_policy" "custom_ecs_policy" {
           "logs:PutLogEvents"
         ],
         Resource = "*" # Best practice is to limit this to a specific log group ARN
+      },
+      {
+        Sid    = "SSMReadAccess",
+        Effect = "Allow",
+        Action = "ssm:GetParameters",
+        Resource = "*"
       }
     ]
   })
 }
+
+resource "aws_ssm_parameter" "mongodb_uri" {
+  name  = "/${var.environment}/caam/mongodb_uri"
+  type  = "SecureString"
+  value = var.mongodb_uri
+}
+resource "aws_ssm_parameter" "email_password" {
+  name  = "/${var.environment}/caam/email_password"
+  type  = "SecureString"
+  value = var.mongodb_uri
+}
+resource "aws_ssm_parameter" "email_id" {
+  name  = "/${var.environment}/caam/email_id"
+  type  = "SecureString"
+  value = var.mongodb_uri
+}
+resource "aws_ssm_parameter" "jwt_secret" {
+  name  = "/${var.environment}/caam/jwt_secret"
+  type  = "SecureString"
+  value = var.mongodb_uri
+}
+
 
 resource "aws_cloudwatch_log_group" "ecs_app_logs" {
   name              = var.log_group
@@ -103,10 +131,22 @@ resource "aws_ecs_task_definition" "aw_ecs_task" {
       ]
        environment = [
         # Use a for loop to dynamically create key-value pairs from a variable
-        for key, value in var.env_variables : {
-          name  = key
-          value = value
-        }
+      {
+    name  = "MONGODB_URI"
+    value = var.mongodb_uri
+  },
+  {
+    name  = "EMAIL_ID"
+    value = var.email_id
+  },
+  {
+    name  = "EMAIL_PASSWORD"
+    value = var.email_password
+  },
+  {
+    name  = "SECRET_KEY"
+    value = var.jwt_secret
+  }
       ]
       logConfiguration = {
         logDriver = "awslogs"
