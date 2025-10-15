@@ -125,27 +125,44 @@ variable "container_cpu" {
 
 variable "mongodb_uri" {
   description = "Value of the DB URI"
-  type = string
-  sensitive = true
-}
-variable "mongodb_uri" {
-  description = "A map of environment variables to pass to the ECS container."
   type        = string
-  sensitive = true
+  sensitive   = true
 }
+
 
 variable "email_id" {
   description = "A map of environment variables to pass to the ECS container."
   type        = string
-  sensitive = true
+  sensitive   = true
 }
 variable "email_password" {
   description = "A map of environment variables to pass to the ECS container."
   type        = string
-  sensitive = true
+  sensitive   = true
 }
 variable "jwt_secret" {
   description = "A map of environment variables to pass to the ECS container."
   type        = string
-  sensitive = true
+  sensitive   = true
+}
+
+variable "cache_policy_id" {
+  description = "Value of the cache_policy_id for the cdn"
+  type        = string
+
+}
+
+variable "origin_request_policy_id" {
+  description = "Value of the origin_request_policy_id for the cdn"
+  type        = string
+}
+
+variable "api_cache_policy_id"{
+  description = "api_cache_policy_id"
+  type = string
+}
+
+variable "api_origin_request_policy_id"{
+  description = "api_origin_request_policy_id"
+  type = string
 }

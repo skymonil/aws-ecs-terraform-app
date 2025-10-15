@@ -27,6 +27,7 @@ app.use(cors({
     "http://localhost:5173", 
     "https://615915.xyz",
     "https://www.615915.xyz", // Add www subdomain if needed
+    "https://api.615915.xyz",
     "https://staging.615915.xyz",
     
   ],
@@ -38,6 +39,17 @@ app.use(cors({
 }));
 
 app.use(cookieParser());
+
+app.use((req, res, next) => {
+  const oldSend = res.send;
+  res.send = function (body) {
+    console.log("🔎 Response headers for", req.originalUrl);
+    console.log(res.getHeaders()); // logs all headers
+    return oldSend.apply(res, arguments);
+  };
+  next();
+});
+
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(express.json());

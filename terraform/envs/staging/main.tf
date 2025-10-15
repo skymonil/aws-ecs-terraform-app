@@ -1,25 +1,39 @@
+# --- Shared Infrastructure (VPC + ALB) ---
+# These data sources reference existing prod infra instead of creating new ones.
 
-
-
-# Prevent accidental deletion
-
-
-
-module "vpc" {
-  source              = "../../modules/network"
-  vpc_name            = var.vpc_name
-  environment         = var.environment
-  availability_zones  = var.availability_zones
-  public_subnet_cidrs = var.public_subnet_cidrs
-  vpc_cidr_block      = var.vpc_cidr_block
-  region              = var.region
+data "aws_vpc" "existing_vpc" {
+  filter {
+    name   = "tag:Name"
+    values = [var.vpc_name]
+  }
 }
 
+data "aws_subnets" "public_subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.existing_vpc.id]
+  }
+
+  filter {
+    name   = "tag:Type"
+    values = ["public"]
+  }
+}
+
+data "aws_lb" "existing_alb" {
+  name = "alb-${var.vpc_name}-${var.environment == "staging" ? "prod" : var.environment}"
+}
+
+data "aws_lb_listener" "https_listener" {
+  load_balancer_arn = data.aws_lb.existing_alb.arn
+  port              = 443
+}
+
+# --- S3 + CloudFront ---
 module "s3" {
   source      = "../../modules/s3"
   bucket_name = var.bucket_name
   environment = var.environment
-
 }
 
 module "cdn" {
@@ -32,11 +46,12 @@ module "cdn" {
   acm_certificate_arn            = var.acm_certificate_arn
   cache_policy_id                = var.cache_policy_id
   origin_request_policy_id       = var.origin_request_policy_id
-  api_cache_policy_id = var.api_cache_policy_id
-  alb_dns_name = module.alb.alb_dns_name
-  api_origin_request_policy_id = var.api_origin_request_policy_id
+  api_cache_policy_id            = var.api_cache_policy_id
+  alb_dns_name                   = data.aws_lb.existing_alb.dns_name
+  api_origin_request_policy_id   = var.api_origin_request_policy_id
 }
 
+# --- Allow CloudFront to access S3 ---
 resource "aws_s3_bucket_policy" "cf_access" {
   bucket = module.s3.bucket_id
 
@@ -61,47 +76,41 @@ resource "aws_s3_bucket_policy" "cf_access" {
   })
 }
 
-
-resource "aws_lb_listener_rule" "prod_rule" {
-  listener_arn = module.alb.alb_listener_arn
-  priority     = 10
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.backend_prod.arn
-  }
-
-  condition {
-    host_header {
-      values = ["api.615915.xyz"]
-    }
-  }
-}
-
-resource "aws_lb_target_group" "backend_prod" {
-  name        = "backend-${var.environment}-tg"
+# --- Target Group + Listener Rule ---
+resource "aws_lb_target_group" "backend_staging" {
+  name        = "backend-staging-tg"
   port        = 5000
   protocol    = "HTTP"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = data.aws_vpc.existing_vpc.id
   target_type = "ip"
+
   health_check {
     path = "/health"
     port = "5000"
   }
 
   tags = {
-    Environment = "prod"
+    Environment = "staging"
   }
 }
-module "alb" {
-  source                  = "../../modules/alb"
-  vpc_id                  = module.vpc.vpc_id
-  public_subnet_ids       = module.vpc.public_subnet_ids
-  environment             = var.environment
-  alb_acm_certificate_arn = var.alb_acm_certificate_arn
 
+resource "aws_lb_listener_rule" "staging_rule" {
+  listener_arn = data.aws_lb_listener.https_listener.arn
+  priority     = 20 # Lower than prod (10)
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend_staging.arn
+  }
+
+  condition {
+    host_header {
+      values = ["staging-api.615915.xyz"]
+    }
+  }
 }
 
+# --- ECS Service + Cluster ---
 module "ecs" {
   source                  = "../../modules/ecs"
   environment             = var.environment
@@ -115,16 +124,15 @@ module "ecs" {
   cpu                     = var.cpu
   assign_public_ip        = var.assign_public_ip
   container_name          = var.container_name
-  public_subnet_ids       = module.vpc.public_subnet_ids
+  public_subnet_ids       = data.aws_subnets.public_subnets.ids
   service_launch_type     = var.service_launch_type
   memory                  = var.memory
   log_group               = var.log_group
   container_cpu           = var.container_cpu
-  ecs_security_group_ids  = [module.vpc.ecs_security_group_ids]
-  aws_lb_target_group_arn = aws_lb_target_group.backend_prod.arn
+  ecs_security_group_ids  = [] # assuming using default ECS SG
+  aws_lb_target_group_arn = aws_lb_target_group.backend_staging.arn
   mongodb_uri             = var.mongodb_uri
   email_id                = var.email_id
   email_password          = var.email_password
   jwt_secret              = var.jwt_secret
 }
-

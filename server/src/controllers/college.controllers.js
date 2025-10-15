@@ -1,4 +1,9 @@
 import College from "../models/College.model.js";
+import crypto from "crypto";
+
+const generateHash = (data) => {
+  return crypto.createHash("sha1").update(data).digest("hex");
+};
 
 export const addCollege = async (req, res) => {
   const { collegeID, collegeName, address, globalFees, courses } = req.body;
@@ -40,9 +45,22 @@ export const addCollege = async (req, res) => {
   }
 };
 
+const sendCachedResponse = (req, res, data) => {
+  const jsonData = JSON.stringify(data);
+  const etag = generateHash(jsonData);
+
+  res.set("Cache-Control", "public, s-maxage=600, max-age=60");
+
+
+  res.status(200).json(data);
+};
+
 export const getCollege = async (req, res) => {
   try {
     const colleges = await College.find();
+
+    return sendCachedResponse(req, res, colleges);
+
     res.status(200).json(colleges);
   } catch (error) {
     res.status(500).json({ message: "Error fetching colleges", error });
@@ -52,12 +70,12 @@ export const getCollege = async (req, res) => {
 export const getColleges = async (req, res) => {
   try {
     const colleges = await College.find({}, "_id collegeName");
-
+   
     if (!colleges || colleges.length === 0) {
       return res.status(404).json({ message: "No colleges found" });
     }
 
-    res.status(200).json(colleges);
+  return sendCachedResponse(req, res, colleges);
   } catch (error) {
     console.error("Error fetching colleges: ", error);
     res.status(500).json({ message: "Internal server error", error });

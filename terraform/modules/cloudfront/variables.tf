@@ -31,3 +31,30 @@ variable "acm_certificate_arn" {
   description = "ARN of the ACM certificate (must cover both domains and be in us-east-1)"
   type        = string
 }
+
+variable "cache_policy_id" {
+  description = "Value of the cache_policy_id for the cdn"
+  type        = string
+
+}
+
+
+variable "origin_request_policy_id" {
+  description = "Value of the origin_request_policy_id for the cdn"
+  type        = string
+}
+
+variable "alb_dns_name" {
+  description = "DNS name of the ALB"
+  type        = string
+}
+
+variable "api_cache_policy_id"{
+  description = "api_cache_policy_id"
+  type = string
+}
+
+variable "api_origin_request_policy_id"{
+  description = "api_request_policy_id"
+  type = string
+}

@@ -38,7 +38,7 @@ resource "aws_s3_object" "env_js" {
   bucket = var.bucket_name
   key    = "env.js"
   content = templatefile("${path.module}/env.js.tmpl", {
-    BACKEND_URL = var.environment == "prod" ? "https://api.615915.xyz" : "https://api-staging.615915.xyz"
+    BACKEND_URL = var.environment == "prod" ? "https://615915.xyz" : "https://staging.615915.xyz"
   })
 
   content_type = "application/javascript"

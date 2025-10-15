@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 ARG NODE_VERSION=22.14.0
 FROM node:${NODE_VERSION}-alpine AS base
 
@@ -7,6 +5,7 @@ FROM node:${NODE_VERSION}-alpine AS base
 WORKDIR /app
 
 # Install dependencies in a separate layer
+COPY . .
 COPY package*.json ./
 
 RUN npm ci --omit=dev --no-optional
