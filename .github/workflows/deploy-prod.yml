@@ -1,0 +1,102 @@
+name: CD — Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      ECR_REPO: ${{ secrets.ECR_REPOSITORY }}
+      IMAGE_TAG: prod-latest
+      CONTAINER_NAME: ${{ secrets.CONTAINER_NAME }}
+      TASK_DEF_FAMILY: ${{ secrets.TASK_DEF_FAMILY }}
+      ECS_CLUSTER: ${{ secrets.ECS_CLUSTER_PROD }}
+      ECS_SERVICE: ${{ secrets.ECS_SERVICE_PROD }}
+      CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID_PROD }}
+      S3_BUCKET: ${{ secrets.S3_BUCKET_PROD }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ---------------------------
+      # Backend Deployment Section
+      # ---------------------------
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Fetch current task definition JSON
+        run: |
+          aws ecs describe-task-definition --task-definition ${TASK_DEF_FAMILY} > taskdef.json
+          jq '.taskDefinition | {family: .family, containerDefinitions: .containerDefinitions, volumes: .volumes, taskRoleArn:.taskRoleArn, executionRoleArn:.executionRoleArn, networkMode:.networkMode, cpu:.cpu, memory:.memory, requiresCompatibilities:.requiresCompatibilities}' taskdef.json > td_template.json
+
+      - name: Build and push backend image
+        run: |
+          IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${IMAGE_TAG}"
+          echo "Building image: $IMAGE_URI"
+          docker build -t $IMAGE_URI .
+          aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+          docker push $IMAGE_URI
+
+      - name: Patch container image to prod-latest
+        run: |
+          IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${IMAGE_TAG}"
+          echo "Using image: $IMAGE_URI"
+          jq --arg img "$IMAGE_URI" --arg cname "$CONTAINER_NAME" \
+            '.containerDefinitions |= map( if .name==$cname then .image=$img else . end )' td_template.json > new_taskdef.json
+          cat new_taskdef.json
+
+      - name: Register new task definition
+        id: register
+        run: |
+          NEW_TASKDEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new_taskdef.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "new_taskdef_arn=$NEW_TASKDEF_ARN" >> $GITHUB_OUTPUT
+
+      - name: Update ECS service to use new task definition
+        run: |
+          aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --task-definition ${{ steps.register.outputs.new_taskdef_arn }} || \
+            aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --force-new-deployment
+
+      - name: Wait for service stability
+        run: |
+          aws ecs wait services-stable --cluster ${ECS_CLUSTER} --services ${ECS_SERVICE}
+
+      # ---------------------------
+      # Frontend Deployment Section
+      # ---------------------------
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies and build client
+        working-directory: ./client
+        run: |
+          npm ci
+          npm run build
+
+      - name: Sync frontend build to S3
+        run: |
+          aws s3 sync ./client/dist s3://${S3_BUCKET} --delete --cache-control "max-age=0,no-cache,no-store,must-revalidate"
+
+      - name: Invalidate CloudFront Cache
+        if: ${{ env.CLOUDFRONT_DIST_ID != '' }}
+        run: |
+          aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DIST_ID} --paths "/*"

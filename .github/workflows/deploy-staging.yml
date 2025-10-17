@@ -1,0 +1,98 @@
+name: CD — Deploy to Staging
+
+on:
+  push:
+    branches:
+      - staging
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      ECR_REPO: ${{ secrets.ECR_REPOSITORY }}
+      IMAGE_TAG: staging-latest
+      CONTAINER_NAME: ${{ secrets.CONTAINER_NAME }}
+      TASK_DEF_FAMILY: ${{ secrets.TASK_DEF_FAMILY }}
+      ECS_CLUSTER: ${{ secrets.ECS_CLUSTER_STAGING }}
+      ECS_SERVICE: ${{ secrets.ECS_SERVICE_STAGING }}
+      CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID_STAGING }}
+      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME_STAGING }}
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      #######################################
+      # 🚀 DEPLOY BACKEND (ECS)
+      #######################################
+      - name: Fetch current task definition JSON
+        id: fetch_taskdef
+        run: |
+          aws ecs describe-task-definition --task-definition ${TASK_DEF_FAMILY} > taskdef.json
+          jq '.taskDefinition | {family: .family, containerDefinitions: .containerDefinitions, volumes: .volumes, taskRoleArn:.taskRoleArn, executionRoleArn:.executionRoleArn, networkMode:.networkMode, cpu:.cpu, memory:.memory, requiresCompatibilities:.requiresCompatibilities}' taskdef.json > td_template.json
+          echo "taskdef_template=td_template.json" >> $GITHUB_OUTPUT
+
+      - name: Patch container image to staging-latest
+        id: patch
+        run: |
+          IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${IMAGE_TAG}"
+          echo "Using image: $IMAGE_URI"
+          jq --arg img "$IMAGE_URI" --arg cname "$CONTAINER_NAME" \
+            '.containerDefinitions |= map( if .name==$cname then .image=$img else . end )' td_template.json > new_taskdef.json
+          cat new_taskdef.json
+
+      - name: Register new task definition
+        id: register
+        run: |
+          NEW_TASKDEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new_taskdef.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "new_taskdef_arn=$NEW_TASKDEF_ARN" >> $GITHUB_OUTPUT
+
+      - name: Update ECS service to use new task definition
+        run: |
+          aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --task-definition ${{ steps.register.outputs.new_taskdef_arn }} || \
+            aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --force-new-deployment
+
+      - name: Wait for ECS service stability
+        run: |
+          aws ecs wait services-stable --cluster ${ECS_CLUSTER} --services ${ECS_SERVICE}
+          echo "✅ ECS service is stable."
+
+      #######################################
+      # 🎨 DEPLOY FRONTEND (S3 + CloudFront)
+      #######################################
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build frontend
+        working-directory: ./client
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy frontend to S3
+        run: |
+          echo "Uploading frontend build to S3: ${S3_BUCKET_NAME}"
+          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME} --delete
+
+      - name: Invalidate CloudFront cache
+        if: ${{ env.CLOUDFRONT_DIST_ID != '' }}
+        run: |
+          echo "Invalidating CloudFront distribution ${CLOUDFRONT_DIST_ID}"
+          aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DIST_ID} --paths "/*"
