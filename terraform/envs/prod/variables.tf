@@ -157,12 +157,12 @@ variable "origin_request_policy_id" {
   type        = string
 }
 
-variable "api_cache_policy_id"{
+variable "api_cache_policy_id" {
   description = "api_cache_policy_id"
-  type = string
+  type        = string
 }
 
-variable "api_origin_request_policy_id"{
+variable "api_origin_request_policy_id" {
   description = "api_origin_request_policy_id"
-  type = string
+  type        = string
 }

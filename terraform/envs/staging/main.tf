@@ -1,6 +1,4 @@
 # --- Shared Infrastructure (VPC + ALB) ---
-# These data sources reference existing prod infra instead of creating new ones.
-
 data "aws_vpc" "existing_vpc" {
   filter {
     name   = "tag:Name"
@@ -8,20 +6,59 @@ data "aws_vpc" "existing_vpc" {
   }
 }
 
-data "aws_subnets" "public_subnets" {
+# --- Create new public subnets for staging ---
+resource "aws_subnet" "public_a_staging" {
+  vpc_id                  = data.aws_vpc.existing_vpc.id
+  cidr_block              = "192.168.128.0/24" # Choose a non-overlapping range with prod subnets
+  availability_zone       = "ap-south-1a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name        = "public-ap-south-1a-staging"
+    Type        = "public"
+    Environment = "staging"
+  }
+}
+
+resource "aws_subnet" "public_b_staging" {
+  vpc_id                  = data.aws_vpc.existing_vpc.id
+  cidr_block              = "192.168.129.0/24" # Choose another non-overlapping range
+  availability_zone       = "ap-south-1b"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name        = "public-ap-south-1b-staging"
+    Type        = "public"
+    Environment = "staging"
+  }
+}
+
+# --- Associate subnets with route table (so internet access works) ---
+data "aws_route_table" "main" {
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.existing_vpc.id]
   }
 
   filter {
-    name   = "tag:Type"
-    values = ["public"]
+    name   = "association.main"
+    values = ["true"]
   }
 }
 
+resource "aws_route_table_association" "a_staging_assoc" {
+  subnet_id      = aws_subnet.public_a_staging.id
+  route_table_id = data.aws_route_table.main.id
+}
+
+resource "aws_route_table_association" "b_staging_assoc" {
+  subnet_id      = aws_subnet.public_b_staging.id
+  route_table_id = data.aws_route_table.main.id
+}
+
+# --- ALB (Shared) ---
 data "aws_lb" "existing_alb" {
-  name = "alb-${var.vpc_name}-${var.environment == "staging" ? "prod" : var.environment}"
+  name = "shared-prod-alb"
 }
 
 data "aws_lb_listener" "https_listener" {
@@ -105,7 +142,7 @@ resource "aws_lb_listener_rule" "staging_rule" {
 
   condition {
     host_header {
-      values = ["staging-api.615915.xyz"]
+      values = ["staging.615915.xyz"]
     }
   }
 }
@@ -124,7 +161,7 @@ module "ecs" {
   cpu                     = var.cpu
   assign_public_ip        = var.assign_public_ip
   container_name          = var.container_name
-  public_subnet_ids       = data.aws_subnets.public_subnets.ids
+  public_subnet_ids       = [aws_subnet.public_a_staging.id, aws_subnet.public_b_staging.id]
   service_launch_type     = var.service_launch_type
   memory                  = var.memory
   log_group               = var.log_group

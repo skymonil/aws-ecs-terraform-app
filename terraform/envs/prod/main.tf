@@ -32,9 +32,9 @@ module "cdn" {
   acm_certificate_arn            = var.acm_certificate_arn
   cache_policy_id                = var.cache_policy_id
   origin_request_policy_id       = var.origin_request_policy_id
-  api_cache_policy_id = var.api_cache_policy_id
-  alb_dns_name = module.alb.alb_dns_name
-  api_origin_request_policy_id = var.api_origin_request_policy_id
+  api_cache_policy_id            = var.api_cache_policy_id
+  alb_dns_name                   = module.alb.alb_dns_name
+  api_origin_request_policy_id   = var.api_origin_request_policy_id
 }
 
 resource "aws_s3_bucket_policy" "cf_access" {
@@ -73,7 +73,7 @@ resource "aws_lb_listener_rule" "prod_rule" {
 
   condition {
     host_header {
-      values = ["api.615915.xyz"]
+      values = ["615915.xyz"]
     }
   }
 }
