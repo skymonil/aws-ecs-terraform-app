@@ -5,7 +5,7 @@ FROM node:20-alpine as build
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json ./
+COPY package.json  ./
 
 # Install dependencies and the missing tailwind forms plugin
 RUN npm ci 
