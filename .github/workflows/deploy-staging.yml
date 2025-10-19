@@ -11,6 +11,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: staging
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
       ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
@@ -89,7 +90,7 @@ jobs:
       - name: Deploy frontend to S3
         run: |
           echo "Uploading frontend build to S3: ${S3_BUCKET_NAME}"
-          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME} --delete
+          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME} 
 
       - name: Invalidate CloudFront cache
         if: ${{ env.CLOUDFRONT_DIST_ID != '' }}

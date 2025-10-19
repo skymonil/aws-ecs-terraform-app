@@ -13,6 +13,7 @@ permissions:
 jobs:
   build-and-push-backend:
     runs-on: ubuntu-latest
+    environment: staging
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
       ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
