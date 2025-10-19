@@ -63,6 +63,7 @@ jobs:
 
   deploy-frontend:
     runs-on: ubuntu-latest
+    environment: staging
     needs: build-and-push-backend
     if: ${{ github.event_name == 'push' }}
     env:
