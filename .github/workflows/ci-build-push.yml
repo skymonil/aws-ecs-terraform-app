@@ -90,7 +90,7 @@ jobs:
 
       - name: Deploy to S3
         run: |
-          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME_STAGING} 
+          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME} 
 
       - name: Invalidate CloudFront cache
         run: |
