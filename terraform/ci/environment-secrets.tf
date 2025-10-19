@@ -102,7 +102,7 @@ resource "github_actions_environment_secret" "prod_ecr_repo" {
   repository      = var.repo_name
   environment     = github_repository_environment.prod.environment
   secret_name     = "ECR_REPOSITORY"
-  plaintext_value = "289970482897.dkr.ecr.ap-south-1.amazonaws.com/caam"
+  plaintext_value = "caam"
 }
 
 resource "github_actions_environment_secret" "prod_access_key" {
