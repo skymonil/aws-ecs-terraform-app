@@ -85,7 +85,7 @@ jobs:
       - name: Install dependencies and build React app
         working-directory: ./client
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Deploy to S3
