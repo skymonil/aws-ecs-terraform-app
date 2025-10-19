@@ -150,7 +150,7 @@ const Register: React.FC = () => {
         {/* Right side with form */}
         <div className="w-full lg:w-1/2 p-6 space-y-3">
           <h2 className="text-2xl font-semibold text-center text-gray-800">
-            CREATE ACCOUNT
+            CREATE ACCOUNT IN STAGING
           </h2>
           <p className="text-center text-gray-600 text-sm">
             Join us today to get started
