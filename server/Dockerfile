@@ -5,10 +5,9 @@ FROM node:${NODE_VERSION}-alpine AS base
 WORKDIR /app
 
 # Install dependencies in a separate layer
-COPY . .
 COPY package*.json ./
 
-RUN npm ci --omit=dev --no-optional
+RUN npm install --omit=dev --no-optional --no-audit --no-fund
 
 # Copy the rest of the source code
 COPY . .
