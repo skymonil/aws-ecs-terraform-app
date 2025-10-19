@@ -45,7 +45,9 @@ jobs:
         id: fetch_taskdef
         run: |
           aws ecs describe-task-definition --task-definition ${TASK_DEF_FAMILY} > taskdef.json
-          jq '.taskDefinition | {family: .family, containerDefinitions: .containerDefinitions, volumes: .volumes, taskRoleArn:.taskRoleArn, executionRoleArn:.executionRoleArn, networkMode:.networkMode, cpu:.cpu, memory:.memory, requiresCompatibilities:.requiresCompatibilities}' taskdef.json > td_template.json
+          jq '.taskDefinition | {family: .family, containerDefinitions: .containerDefinitions, volumes: .volumes, 
+          executionRoleArn:.executionRoleArn, networkMode:.networkMode, cpu:.cpu, memory:.memory, requiresCompatibilities:.requiresCompatibilities} + 
+          (if .taskRoleArn != null then {taskRoleArn: .taskRoleArn} else {} end)' taskdef.json > td_template.json
           echo "taskdef_template=td_template.json" >> $GITHUB_OUTPUT
 
       - name: Patch container image to staging-latest
