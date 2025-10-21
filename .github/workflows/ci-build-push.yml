@@ -1,4 +1,4 @@
-name: CI — Build & Push Images + Frontend Deploy
+name: CI — Build & Push Images + Frontend Deploy (Optimized)
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   ##################################
-  # 🐳 Backend Build & Image Push
+  # 🐳 Backend Build & Image Push (Optimized with BuildKit Cache)
   ##################################
   build-and-push-backend:
     runs-on: ubuntu-latest
@@ -58,15 +58,33 @@ jobs:
           echo "IMAGE_SHA_TAG=$IMAGE_SHA_TAG" >> $GITHUB_OUTPUT
           echo "IMAGE_BRANCH_TAG=$IMAGE_BRANCH_TAG" >> $GITHUB_OUTPUT
 
-      - name: Build backend Docker image
-        working-directory: ./server
-        run: |
-          docker build -t ${{ steps.tags.outputs.IMAGE_SHA_TAG }} -t ${{ steps.tags.outputs.IMAGE_BRANCH_TAG }} .
+      # ⚡ Enable Docker BuildKit and use cache
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Push backend image to ECR
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.ref }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build and push backend Docker image (cached)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.IMAGE_SHA_TAG }}
+            ${{ steps.tags.outputs.IMAGE_BRANCH_TAG }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+
+      - name: Move new cache
         run: |
-          docker push ${{ steps.tags.outputs.IMAGE_SHA_TAG }}
-          docker push ${{ steps.tags.outputs.IMAGE_BRANCH_TAG }}
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   ##################################
   # 🧪 Trivy — Scan Backend Image
@@ -97,6 +115,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: ./client/package-lock.json
 
       - name: Install dependencies
         working-directory: ./client
