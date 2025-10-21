@@ -35,12 +35,27 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      #######################################
+      # 🐳 Build & Push Backend Docker Image
+      #######################################
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          push: true
+          tags: |
+            ${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.IMAGE_TAG }}
+            ${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ github.sha }}
+
+      #######################################
+      # 🚀 Deploy Backend (ECS)
+      #######################################
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      #######################################
-      # 🚀 DEPLOY BACKEND (ECS)
-      #######################################
       - name: Fetch current task definition JSON
         id: fetch_taskdef
         run: |
@@ -48,16 +63,13 @@ jobs:
           jq '.taskDefinition | {family: .family, containerDefinitions: .containerDefinitions, volumes: .volumes, 
           executionRoleArn:.executionRoleArn, networkMode:.networkMode, cpu:.cpu, memory:.memory, requiresCompatibilities:.requiresCompatibilities} + 
           (if .taskRoleArn != null then {taskRoleArn: .taskRoleArn} else {} end)' taskdef.json > td_template.json
-          echo "taskdef_template=td_template.json" >> $GITHUB_OUTPUT
 
       - name: Patch container image to staging-latest
         id: patch
         run: |
           IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${IMAGE_TAG}"
-          echo "Using image: $IMAGE_URI"
           jq --arg img "$IMAGE_URI" --arg cname "$CONTAINER_NAME" \
             '.containerDefinitions |= map( if .name==$cname then .image=$img else . end )' td_template.json > new_taskdef.json
-          cat new_taskdef.json
 
       - name: Register new task definition
         id: register
@@ -67,8 +79,7 @@ jobs:
 
       - name: Update ECS service to use new task definition
         run: |
-          aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --task-definition ${{ steps.register.outputs.new_taskdef_arn }} || \
-            aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --force-new-deployment
+          aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --task-definition ${{ steps.register.outputs.new_taskdef_arn }}
 
       - name: Wait for ECS service stability
         run: |
@@ -76,7 +87,7 @@ jobs:
           echo "✅ ECS service is stable."
 
       #######################################
-      # 🎨 DEPLOY FRONTEND (S3 + CloudFront)
+      # 🎨 Deploy Frontend (S3 + CloudFront)
       #######################################
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -92,10 +103,9 @@ jobs:
       - name: Deploy frontend to S3
         run: |
           echo "Uploading frontend build to S3: ${S3_BUCKET_NAME}"
-          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME} 
+          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME}
 
       - name: Invalidate CloudFront cache
         if: ${{ env.CLOUDFRONT_DIST_ID != '' }}
         run: |
-          echo "Invalidating CloudFront distribution ${CLOUDFRONT_DIST_ID}"
           aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DIST_ID} --paths "/*"
