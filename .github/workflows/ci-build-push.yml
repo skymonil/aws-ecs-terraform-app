@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   ##################################
-  # 🐳 Backend Build & Image Push (Optimized with BuildKit Cache)
+  # 🐳 Backend Build & Image Push (with ECR Registry Cache)
   ##################################
   build-and-push-backend:
     runs-on: ubuntu-latest
@@ -58,19 +58,10 @@ jobs:
           echo "IMAGE_SHA_TAG=$IMAGE_SHA_TAG" >> $GITHUB_OUTPUT
           echo "IMAGE_BRANCH_TAG=$IMAGE_BRANCH_TAG" >> $GITHUB_OUTPUT
 
-      # ⚡ Enable Docker BuildKit and use cache
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.ref }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
-      - name: Build and push backend Docker image (cached)
+      - name: Build and push backend Docker image (with registry cache)
         uses: docker/build-push-action@v6
         with:
           context: ./server
@@ -78,25 +69,8 @@ jobs:
           tags: |
             ${{ steps.tags.outputs.IMAGE_SHA_TAG }}
             ${{ steps.tags.outputs.IMAGE_BRANCH_TAG }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new
-
-      - name: Build and push backend Docker image (cached)
-        uses: docker/build-push-action@v6
-        with:
-          context: ./server
-          push: true
-          tags: |
-           ${{ steps.tags.outputs.IMAGE_SHA_TAG }}
-           ${{ steps.tags.outputs.IMAGE_BRANCH_TAG }}
           cache-from: type=registry,ref=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:buildcache
           cache-to: type=registry,ref=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:buildcache,mode=max
-  
-
-      - name: Move new cache
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   ##################################
   # 🧪 Trivy — Scan Backend Image
