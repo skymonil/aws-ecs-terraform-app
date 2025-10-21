@@ -9,7 +9,10 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  #######################################
+  # 🐳 Backend Build & Deploy (ECS)
+  #######################################
+  backend:
     runs-on: ubuntu-latest
     environment: staging
     env:
@@ -21,8 +24,6 @@ jobs:
       TASK_DEF_FAMILY: ${{ secrets.TASK_DEF_FAMILY }}
       ECS_CLUSTER: ${{ secrets.ECS_CLUSTER_STAGING }}
       ECS_SERVICE: ${{ secrets.ECS_SERVICE_STAGING }}
-      CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID_STAGING }}
-      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME_STAGING }}
 
     steps:
       - name: Checkout source code
@@ -33,11 +34,8 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      #######################################
-      # 🐳 Build & Push Backend Docker Image
-      #######################################
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
@@ -50,22 +48,17 @@ jobs:
             ${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.IMAGE_TAG }}
             ${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ github.sha }}
 
-      #######################################
-      # 🚀 Deploy Backend (ECS)
-      #######################################
-      - name: Install dependencies
+      - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Fetch current task definition JSON
-        id: fetch_taskdef
         run: |
           aws ecs describe-task-definition --task-definition ${TASK_DEF_FAMILY} > taskdef.json
           jq '.taskDefinition | {family: .family, containerDefinitions: .containerDefinitions, volumes: .volumes, 
           executionRoleArn:.executionRoleArn, networkMode:.networkMode, cpu:.cpu, memory:.memory, requiresCompatibilities:.requiresCompatibilities} + 
           (if .taskRoleArn != null then {taskRoleArn: .taskRoleArn} else {} end)' taskdef.json > td_template.json
 
-      - name: Patch container image to staging-latest
-        id: patch
+      - name: Patch container image
         run: |
           IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${IMAGE_TAG}"
           jq --arg img "$IMAGE_URI" --arg cname "$CONTAINER_NAME" \
@@ -77,35 +70,63 @@ jobs:
           NEW_TASKDEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new_taskdef.json --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "new_taskdef_arn=$NEW_TASKDEF_ARN" >> $GITHUB_OUTPUT
 
-      - name: Update ECS service to use new task definition
+      - name: Update ECS service
         run: |
           aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --task-definition ${{ steps.register.outputs.new_taskdef_arn }}
 
       - name: Wait for ECS service stability
-        run: |
-          aws ecs wait services-stable --cluster ${ECS_CLUSTER} --services ${ECS_SERVICE}
-          echo "✅ ECS service is stable."
+        run: aws ecs wait services-stable --cluster ${ECS_CLUSTER} --services ${ECS_SERVICE}
 
-      #######################################
-      # 🎨 Deploy Frontend (S3 + CloudFront)
-      #######################################
-      - name: Install Node.js
+
+  #######################################
+  # 🎨 Frontend Build & Deploy (S3 + CF)
+  #######################################
+  frontend:
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID_STAGING }}
+      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME_STAGING }}
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Build frontend
+      - name: Install dependencies & build
         working-directory: ./client
         run: |
-          npm i
+          npm ci
           npm run build
 
-      - name: Deploy frontend to S3
+      - name: Deploy to S3
         run: |
-          echo "Uploading frontend build to S3: ${S3_BUCKET_NAME}"
-          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME}
+          echo "Uploading frontend build to S3..."
+          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME} --delete --cache-control "max-age=0,no-cache,no-store,must-revalidate"
 
       - name: Invalidate CloudFront cache
         if: ${{ env.CLOUDFRONT_DIST_ID != '' }}
         run: |
           aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DIST_ID} --paths "/*"
+
+
+  #######################################
+  # ✅ Summary/Notification (Optional)
+  #######################################
+  done:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - run: echo "✅ Both backend and frontend deployed successfully to staging."
