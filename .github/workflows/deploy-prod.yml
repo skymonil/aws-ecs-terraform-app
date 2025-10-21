@@ -92,7 +92,7 @@ jobs:
       - name: Install dependencies and build client
         working-directory: ./client
         run: |
-          npm ci
+          npm i
           npm run build
 
       - name: Sync frontend build to S3
