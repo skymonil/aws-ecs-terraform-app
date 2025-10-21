@@ -98,7 +98,7 @@ jobs:
 
       - name: Sync frontend build to S3
         run: |
-          aws s3 sync ./client/dist s3://${S3_BUCKET} --delete --cache-control "max-age=0,no-cache,no-store,must-revalidate"
+          aws s3 sync ./client/dist s3://${S3_BUCKET}  --cache-control "max-age=0,no-cache,no-store,must-revalidate"
 
       - name: Invalidate CloudFront Cache
         if: ${{ env.CLOUDFRONT_DIST_ID != '' }}
