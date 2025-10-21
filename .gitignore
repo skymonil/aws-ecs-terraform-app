@@ -52,7 +52,6 @@ public/assets/
 *.seed
 
 # Backend-specific files
-package-lock.json
 yarn.lock
 mongo-data/
 
