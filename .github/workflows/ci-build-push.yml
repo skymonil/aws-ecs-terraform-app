@@ -81,6 +81,18 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
 
+      - name: Build and push backend Docker image (cached)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          push: true
+          tags: |
+           ${{ steps.tags.outputs.IMAGE_SHA_TAG }}
+           ${{ steps.tags.outputs.IMAGE_BRANCH_TAG }}
+          cache-from: type=registry,ref=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:buildcache
+          cache-to: type=registry,ref=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:buildcache,mode=max
+  
+
       - name: Move new cache
         run: |
           rm -rf /tmp/.buildx-cache
