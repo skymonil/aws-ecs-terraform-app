@@ -124,7 +124,7 @@ jobs:
       - name: Deploy to S3
         run: |
           echo "Uploading frontend build to S3..."
-          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME} --delete --cache-control "max-age=0,no-cache,no-store,must-revalidate"
+          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME}  --cache-control "max-age=0,no-cache,no-store,must-revalidate"
 
       - name: Invalidate CloudFront cache
         if: ${{ env.CLOUDFRONT_DIST_ID != '' }}
