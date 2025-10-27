@@ -44,6 +44,12 @@ jobs:
         with:
            install: true
            driver-opts: network=host
+      - name: Scan for hardcoded secrets (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          config-path: .gitleaks.toml
+          fail: true
+
 
       - name: Build and push backend Docker image
         uses: docker/build-push-action@v6
