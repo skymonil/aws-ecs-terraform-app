@@ -117,7 +117,7 @@ jobs:
       - name: Install dependencies & build
         working-directory: ./client
         run: |
-          npm ci
+          npm install --no-audit --no-fund --prefer-offline
           npm run build
 
       - name: Deploy to S3
