@@ -127,3 +127,15 @@ variable "api_cache_policy_id" {
 variable "api_origin_request_policy_id" {
   type = string
 }
+
+variable "availability_zones" {
+  description = "List of availability zones to use"
+  type        = list(string)
+  default     = []
+}
+
+variable "public_subnet_cidrs" {
+  description = "List of CIDR blocks for public subnets"
+  type        = list(string)
+  default     = []
+}

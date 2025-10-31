@@ -76,7 +76,7 @@ resource "github_actions_environment_secret" "staging_cloudfront" {
   repository      = var.repo_name
   environment     = github_repository_environment.staging.environment
   secret_name     = "CLOUDFRONT_DISTRIBUTION_ID_STAGING"
-  plaintext_value = "E1B6YXKP8PD7FX"
+  plaintext_value = "E2GXYZ04SHOWAH"
 }
 
 
@@ -158,5 +158,5 @@ resource "github_actions_environment_secret" "prod_cloudfront" {
   repository      = var.repo_name
   environment     = github_repository_environment.prod.environment
   secret_name     = "CLOUDFRONT_DISTRIBUTION_ID_PROD"
-  plaintext_value = "EK6GZUSCX6SM"
+  plaintext_value = "E30XQBOHHZKREA"
 }

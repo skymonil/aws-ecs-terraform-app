@@ -1,5 +1,10 @@
 name: CD — Deploy to Staging
 
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: true
+
+
 on:
   push:
     branches:
@@ -111,13 +116,14 @@ jobs:
       - name: Install dependencies & build
         working-directory: ./client
         run: |
-          npm ci
+          rm -rf node_modules package-lock.json
+          npm install --no-audit --no-fund --prefer-offline
           npm run build
 
       - name: Deploy to S3
         run: |
           echo "Uploading frontend build to S3..."
-          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME} --delete --cache-control "max-age=0,no-cache,no-store,must-revalidate"
+          aws s3 sync ./client/dist s3://${S3_BUCKET_NAME}  --cache-control "max-age=0,no-cache,no-store,must-revalidate"
 
       - name: Invalidate CloudFront cache
         if: ${{ env.CLOUDFRONT_DIST_ID != '' }}
@@ -132,4 +138,4 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     steps:
-      - run: echo "✅ Both backend and frontend deployed successfully to staging."
+      - run: echo "✅ Both backend and frontend deployed successfully to prod."

@@ -114,7 +114,8 @@ jobs:
       - name: Install and build frontend
         working-directory: ./client
         run: |
-          npm i
+          rm -rf node_modules package-lock.json
+          npm install --no-audit --no-fund --prefer-offline
           npm run build
 
       - name: Deploy frontend to S3
