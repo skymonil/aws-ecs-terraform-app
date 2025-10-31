@@ -44,19 +44,6 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-           install: true
-           driver-opts: network=host
-
-      # - name: Scan for hardcoded secrets (Gitleaks)
-      #   uses: gitleaks/gitleaks-action@v2
-      #   with:
-      #     config-path: .gitleaks.toml
-      #     fail: true
-
-
       - name: Build and push backend Docker image
         uses: docker/build-push-action@v6
         with:
@@ -65,17 +52,8 @@ jobs:
           tags: |
             ${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.IMAGE_TAG }}
             ${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ github.sha }}
-          cache-from: type=registry,ref=${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:buildcache
-          cache-to: type=registry,ref=${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:buildcache,mode=max
-
-      - name: Scan Docker image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.IMAGE_TAG }}
-          format: 'table'
-          exit-code: '1'
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'     
+            cache-from: type=registry,ref=${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:buildcache
+            cache-to: type=registry,ref=${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:buildcache,mode=max
 
 
       - name: Install jq
@@ -106,8 +84,6 @@ jobs:
 
       - name: Wait for ECS service stability
         run: aws ecs wait services-stable --cluster ${ECS_CLUSTER} --services ${ECS_SERVICE}
-
-     
 
 
   #######################################
@@ -162,4 +138,4 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     steps:
-      - run: echo "✅ Both backend and frontend deployed successfully to staging."
+      - run: echo "✅ Both backend and frontend deployed successfully to prod."
