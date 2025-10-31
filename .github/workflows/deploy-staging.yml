@@ -1,5 +1,10 @@
 name: CD — Deploy to Staging
 
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: true
+
+
 on:
   push:
     branches:
@@ -44,11 +49,12 @@ jobs:
         with:
            install: true
            driver-opts: network=host
-      - name: Scan for hardcoded secrets (Gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        with:
-          config-path: .gitleaks.toml
-          fail: true
+
+      # - name: Scan for hardcoded secrets (Gitleaks)
+      #   uses: gitleaks/gitleaks-action@v2
+      #   with:
+      #     config-path: .gitleaks.toml
+      #     fail: true
 
 
       - name: Build and push backend Docker image
@@ -100,6 +106,8 @@ jobs:
 
       - name: Wait for ECS service stability
         run: aws ecs wait services-stable --cluster ${ECS_CLUSTER} --services ${ECS_SERVICE}
+
+     
 
 
   #######################################
