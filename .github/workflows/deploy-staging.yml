@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - staging
+      - 'bugfix/*'
 
 permissions:
   contents: read
@@ -24,7 +25,7 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_REGION }}
       ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       ECR_REPO: ${{ secrets.ECR_REPOSITORY }}
-      IMAGE_TAG: staging-latest
+      IMAGE_TAG: ${{ github.ref_name }}-${{ github.sha }}
       CONTAINER_NAME: ${{ secrets.CONTAINER_NAME }}
       TASK_DEF_FAMILY: ${{ secrets.TASK_DEF_FAMILY }}
       ECS_CLUSTER: ${{ secrets.ECS_CLUSTER_STAGING }}
@@ -44,6 +45,14 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+          driver-opts: |
+            image=moby/buildkit:buildx-stable-1
+          install: true  
+
       - name: Build and push backend Docker image
         uses: docker/build-push-action@v6
         with:
@@ -52,8 +61,8 @@ jobs:
           tags: |
             ${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.IMAGE_TAG }}
             ${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ github.sha }}
-            cache-from: type=registry,ref=${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:buildcache
-            cache-to: type=registry,ref=${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:buildcache,mode=max
+          cache-from: type=registry,ref=${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:buildcache
+          cache-to: type=registry,ref=${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:buildcache,mode=max
 
 
       - name: Install jq
