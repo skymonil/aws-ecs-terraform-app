@@ -22,8 +22,6 @@ output "alb_listener_arn" {
   value = aws_lb_listener.https.arn
 }
 
-output "alb_target_sg_id" {
-  value = aws_security_group.alb_sg.id
-}
+
 
 

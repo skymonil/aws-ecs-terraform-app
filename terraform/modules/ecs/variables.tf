@@ -1,126 +1,113 @@
-variable "cluster_name" {
-  description = "Name for the ECS cluster"
-  type        = string
-}
-
-variable "family_name" {
-  description = "Name for the ECS task definiton family"
-  type        = string
-}
-
-variable "compatibilities" {
-  description = "List of ECS launch types to support"
-  type        = list(string)
-  default     = ["FARGATE"] # Optional default
-}
-
-variable "network_mode" {
-  description = "Name of the network mode"
-  type        = string
-  default     = "awsvpc"
-}
-
-variable "container_port" {
-  description = "Port of the container"
-  type        = number
-
-}
-
-variable "container_name" {
-  description = "Name of the container"
-  type        = string
-}
-
-variable "image" {
-  description = "url of the image"
-  type        = string
-}
-variable "cpu" {
-  description = "url of the image"
-  type        = number
-}
-variable "memory" {
-  description = "url of the image"
-  type        = number
-}
-variable "container_cpu" {
-  description = "url of the image"
-  type        = number
-}
-variable "container_memory" {
-  description = "url of the image"
-  type        = number
-}
-
-variable "aws_region" {
-  description = "Name of the region"
-  type        = string
-}
-
-variable "log_group" {
-  description = "log group"
-  type        = string
-}
-
-variable "ecs_service_name" {
-  description = "Name of the ECS service"
-  type        = string
-}
-
-variable "service_launch_type" {
-  description = "Launch type of the ecs service"
-  type        = string
-}
-
-variable "public_subnet_ids" {
-  description = "A list of public subnet IDs to place the ECS tasks in."
-  type        = list(string)
-}
-
-variable "ecs_security_group_ids" {
-  description = "A list of security group IDs for the ECS tasks."
-  type        = list(string)
-}
-
-variable "assign_public_ip" {
-  description = "To decided whether to assign tasks a public ip"
-  type        = bool
-}
-
 variable "environment" {
-  description = "Environment (staging|prod)"
-  type        = string
+  type = string
   validation {
     condition     = contains(["staging", "prod"], var.environment)
-    error_message = "Must be 'staging' or 'prod'."
+    error_message = "Must be staging or prod"
   }
 }
 
-variable "aws_lb_target_group_arn" {
-  description = "target group of alb"
+variable "cluster_name" {
   type = string
 }
 
-
-
-variable "mongodb_uri" {
-  description = "A map of environment variables to pass to the ECS container."
-  type        = string
-  sensitive = true
+variable "ecs_service_name" {
+  type = string
 }
 
-variable "email_id" {
-  description = "A map of environment variables to pass to the ECS container."
-  type        = string
-  sensitive = true
+variable "aws_region" {
+  type = string
 }
-variable "email_password" {
-  description = "A map of environment variables to pass to the ECS container."
-  type        = string
-  sensitive = true
+
+#################################
+# Container
+#################################
+
+variable "container" {
+  description = "ECS container configuration"
+  type = object({
+    name   = string
+    image  = string
+    port   = number
+    cpu    = number
+    memory = number
+  })
 }
-variable "jwt_secret" {
-  description = "A map of environment variables to pass to the ECS container."
+
+#################################
+# Task definition
+#################################
+
+variable "task" {
+  description = "ECS task-level configuration"
+  type = object({
+    family          = string
+    cpu             = number
+    memory          = number
+    compatibilities = optional(list(string), ["FARGATE"])
+    network_mode    = optional(string, "awsvpc")
+  })
+}
+
+#################################
+# Networking
+#################################
+
+variable "networking" {
+  description = "ECS networking configuration"
+  type = object({
+    subnet_ids         = list(string)
+    security_group_ids = list(string)
+    assign_public_ip   = optional(bool, true)
+  })
+}
+
+#################################
+# Autoscaling
+#################################
+
+variable "autoscaling" {
+  description = "ECS autoscaling configuration"
+  type = object({
+    enabled       = optional(bool, false)
+    min           = optional(number, 1)
+    max           = optional(number, 3)
+    cpu_target    = optional(number, 70)
+    memory_target = optional(number, 75)
+  })
+  default = {}
+}
+
+#################################
+# Load balancer
+#################################
+
+variable "load_balancer" {
+  description = "Load balancer integration"
+  type = object({
+    target_group_arn = string
+  })
+}
+
+#################################
+# Logging
+#################################
+
+variable "log_group" {
+  description = "CloudWatch log group name"
   type        = string
+}
+
+#################################
+# Secrets
+#################################
+
+variable "secrets" {
+  description = "Application secrets"
+  type = object({
+    mongodb_uri     = string
+    email_id        = string
+    email_password  = string
+    jwt_secret      = string
+  })
   sensitive = true
 }

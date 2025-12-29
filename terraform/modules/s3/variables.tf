@@ -8,4 +8,8 @@ variable "environment" {
   type        = string
 }
 
+variable "backend_url" {
+  type = string
+  description = "URL of the backend which would vary per environment"
+}
 

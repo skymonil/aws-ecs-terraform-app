@@ -6,6 +6,10 @@ data "aws_vpc" "existing_vpc" {
   }
 }
 
+provider "aws" {
+  region = var.region
+}
+
 # --- Create new public subnets for staging ---
 resource "aws_subnet" "public_a_staging" {
   vpc_id                  = data.aws_vpc.existing_vpc.id
@@ -71,6 +75,7 @@ module "s3" {
   source      = "../../modules/s3"
   bucket_name = var.bucket_name
   environment = var.environment
+  backend_url = var.backend_url
 }
 
 module "cdn" {
@@ -86,6 +91,8 @@ module "cdn" {
   api_cache_policy_id            = var.api_cache_policy_id
   alb_dns_name                   = data.aws_lb.existing_alb.dns_name
   api_origin_request_policy_id   = var.api_origin_request_policy_id
+  viewer_protocol_policy = var.viewer_protocol_policy
+  logs_bucket_domain_name = var.logs_bucket_domain_name
 }
 
 # --- Allow CloudFront to access S3 ---
@@ -172,4 +179,5 @@ module "ecs" {
   email_id                = var.email_id
   email_password          = var.email_password
   jwt_secret              = var.jwt_secret
+  desired_count = var.desired_count
 }

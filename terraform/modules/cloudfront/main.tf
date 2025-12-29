@@ -8,11 +8,12 @@ resource "aws_cloudfront_origin_access_control" "s3_oac" {
 
 
 resource "aws_cloudfront_distribution" "cdn" {
-
+  price_class = "PriceClass_100" # US + Europe + India
+  
   origin {
     domain_name = var.alb_dns_name
     origin_id   = "alb-origin"
-
+    
     custom_origin_config {
       http_port              = 80
       https_port             = 443
@@ -20,6 +21,13 @@ resource "aws_cloudfront_distribution" "cdn" {
       origin_ssl_protocols   = ["TLSv1.2"]
     }
   }
+
+  logging_config {
+  bucket          = var.logs_bucket_domain_name
+  prefix          = "cloudfront/${var.environment}"
+  include_cookies = false
+}
+
 
   origin {
 
@@ -63,10 +71,11 @@ resource "aws_cloudfront_distribution" "cdn" {
     origin_request_policy_id = var.origin_request_policy_id
     cache_policy_id          = var.cache_policy_id
 
-    viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy = var.viewer_protocol_policy
     min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
+    default_ttl = 86400
+    max_ttl     = 31536000
+
   }
 
   restrictions {
@@ -89,8 +98,8 @@ resource "aws_cloudfront_distribution" "cdn" {
   ordered_cache_behavior {
     path_pattern = "/api/*"
     target_origin_id = "alb-origin"
-
-     allowed_methods  = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    compress = true
+    allowed_methods  = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods   = ["GET", "HEAD", "OPTIONS"]
     viewer_protocol_policy = "redirect-to-https"
 

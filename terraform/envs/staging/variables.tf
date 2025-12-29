@@ -18,6 +18,12 @@ variable "bucket_name" {
   type        = string
 }
 
+variable "backend_url" {
+  type = string
+  description = "URL of the backend which would vary per environment"
+}
+
+
 variable "acm_certificate_arn" {
   description = "ACM certificate ARN in us-east-1"
   type        = string
@@ -39,6 +45,11 @@ variable "ecs_service_name" {
 
 variable "cluster_name" {
   type = string
+}
+
+variable "desired_count" {
+  type    = number
+  default = 1
 }
 
 variable "family_name" {
@@ -138,4 +149,48 @@ variable "public_subnet_cidrs" {
   description = "List of CIDR blocks for public subnets"
   type        = list(string)
   default     = []
+}
+
+variable "min_count" {
+  description = "Minimum number of ECS tasks"
+  type        = number
+  default     = 1
+}
+
+variable "max_count" {
+  description = "Maximum number of ECS tasks"
+  type        = number
+  default     = 3
+}
+
+variable "enable_autoscaling" {
+  description = "Enable ECS service autoscaling"
+  type        = bool
+  default     = false
+}
+
+variable "cpu_target_value" {
+  description = "Target CPU utilization percentage"
+  type        = number
+  default     = 70
+}
+
+variable "memory_target_value" {
+  description = "Target memory utilization percentage"
+  type        = number
+  default     = 75
+}
+
+variable "logs_bucket_domain_name" {
+  description = "S3 bucket domain name for CloudFront access logs"
+  type        = string
+}
+
+variable "cloudfront_prefix_list_id" {
+  description = "CloudFront prefix list ID for security group rules of ALB"
+  type = string
+}
+variable "viewer_protocol_policy" {
+  type    = string
+  default = "redirect-to-https"
 }

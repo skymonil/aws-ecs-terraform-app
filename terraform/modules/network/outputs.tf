@@ -3,12 +3,15 @@ output "vpc_id" {
   value       = aws_vpc.caam_vpc.id
 }
 
-# network/outputs.tf
 output "public_subnet_ids" {
-  value = aws_subnet.public_subnet[*].id
+  description = "List of public subnet IDs (for backward compatibility)"
+  value       = [for subnet in aws_subnet.public_subnet : subnet.id]  # ✅ Returns list
 }
 
-output "ecs_security_group_ids" {
-  value = aws_security_group.ecs_security_group_ids.id
+# Optional: Also output as map for other uses
+output "public_subnet_ids_map" {
+  description = "Map of public subnet IDs with names"
+  value       = { for k, subnet in aws_subnet.public_subnet : k => subnet.id }
 }
+
 

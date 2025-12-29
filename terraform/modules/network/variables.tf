@@ -13,23 +13,27 @@ variable "region" {
   description = "AWS Region"
 }
 
-variable "availability_zones" {
-  description = "List of availability zone to deploy subnets into"
-  type        = list(string)
-
-  validation {
-    condition     = (var.environment == "prod" && length(var.availability_zones) >= 2) || (var.environment == "staging" && length(var.availability_zones) >= 1)
-    error_message = "Number of AZs does not meet environment requirements. Prod Requires AZs >=2, Staging requires environment >=1"
+variable "public_subnets" {
+  description = "Map of public subnets with their CIDR and AZ"
+  type = map(object({
+    cidr = string
+    az   = string
+  }))
+  
+  default = {
+    "public-ap-south-1a" = {
+      cidr = "10.0.1.0/24"
+      az   = "ap-south-1a"
+    }
+    "public-ap-south-1b" = {
+      cidr = "10.0.2.0/24"
+      az   = "ap-south-1b"
+    }
   }
-}
-
-variable "public_subnet_cidrs" {
-  description = "CIDR blocks for public subnets (must match AZ count)"
-  type        = list(string)
-
+  
   validation {
-    condition     = length(var.public_subnet_cidrs) == length(var.availability_zones)
-    error_message = "Public subnet CIDRs must match AZ count"
+    condition = length(var.public_subnets) >= 1
+    error_message = "At least one public subnet is required."
   }
 }
 
@@ -51,3 +55,4 @@ variable "environment" {
     error_message = "Must be staging or prod"
   }
 }
+

@@ -18,14 +18,16 @@ resource "aws_internet_gateway" "internet_gateway" {
 }
 
 resource "aws_subnet" "public_subnet" {
+  for_each = var.public_subnets
+
   vpc_id                  = aws_vpc.caam_vpc.id
-  count                   = length(var.availability_zones)
-  cidr_block              = var.public_subnet_cidrs[count.index]
-  availability_zone       = var.availability_zones[count.index]
+  cidr_block              = each.value.cidr
+  availability_zone       = each.value.az
   map_public_ip_on_launch = true
 
-  tags = {
-    Name      = "public-${var.region}-${var.availability_zones[count.index]}-${var.environment}"
+   tags = {
+    Name      = each.key
+    Environment = var.environment
     ManagedBy = "Terraform"
   }
 }
@@ -45,49 +47,10 @@ resource "aws_route_table" "public_route_table" {
 }
 
 resource "aws_route_table_association" "public_route_table_associations" {
-  count     = length(var.availability_zones)
-  subnet_id = element(aws_subnet.public_subnet[*].id, count.index)
-
+   for_each = aws_subnet.public_subnet
+  
+  subnet_id      = each.value.id
   route_table_id = aws_route_table.public_route_table.id
 }
 
-resource "aws_security_group" "ecs_security_group_ids" {
-  name        = "ecs-sg"
-  description = "Allow HTTP from CloudFront (public)"
-  vpc_id      = aws_vpc.caam_vpc.id
 
-  ingress {
-    description = "Allow HTTP from anywhere (CloudFront)"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # ✅ Accept HTTP from CloudFront or anywhere
-  }
-
-  ingress {
-    description = "Allow HTTP from anywhere (CloudFront)"
-    from_port   = 5000
-    to_port     = 5000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # ✅ Accept HTTP from CloudFront or anywhere
-  }
-
-  ingress {
-    description = "Allow HTTPS from anywhere (CloudFront)"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # ✅ Accept HTTP from CloudFront or anywhere
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "alb-sg"
-  }
-}

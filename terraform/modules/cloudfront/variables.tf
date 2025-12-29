@@ -12,6 +12,12 @@ variable "domain_alias" {
   type        = string
 }
 
+variable "logs_bucket_domain_name" {
+  description = "S3 bucket domain name for CloudFront access logs"
+  type        = string
+}
+
+
 variable "s3_bucket_regional_domain_name" {
   description = "Regional domain name of the S3 bucket (e.g., 'bucket.s3.ap-south-1.amazonaws.com')"
   type        = string
@@ -58,3 +64,10 @@ variable "api_origin_request_policy_id"{
   description = "api_request_policy_id"
   type = string
 }
+
+variable "viewer_protocol_policy" {
+  description = "Viewer protocol policy"
+  type    = string
+  default = "redirect-to-https"
+}
+

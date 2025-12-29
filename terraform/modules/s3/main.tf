@@ -1,9 +1,5 @@
-provider "aws" {
-  region = "ap-south-1"
-}
-
 resource "aws_s3_bucket" "frontend" {
-  bucket = var.bucket_name
+  bucket        = var.bucket_name
   force_destroy = true
 
   tags = {
@@ -42,10 +38,39 @@ resource "aws_s3_object" "env_js" {
   })
 
   content_type = "application/javascript"
-depends_on = [aws_s3_bucket.frontend ]
+  depends_on   = [aws_s3_bucket.frontend]
 }
 
+resource "aws_s3_bucket_server_side_encryption_configuration" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
 
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_versioning" "this" {
+  bucket = aws_s3_bucket.frontend.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "this" {
+  bucket = aws_s3_bucket.frontend.id
+
+  rule {
+    id     = "cleanup-old-versions"
+    status = "Enabled"
+     filter {}
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+  }
+}
 
 
 
