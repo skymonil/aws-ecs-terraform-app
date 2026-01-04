@@ -19,7 +19,8 @@
 **/*.dbmdl
 **/*.jfm
 **/charts
-
+.env
+**/.env
 **/docker-compose*
 **/compose.y*ml
 **/Dockerfile*

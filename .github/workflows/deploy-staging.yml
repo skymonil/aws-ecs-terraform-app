@@ -19,6 +19,7 @@ jobs:
   # 🐳 Backend Build & Deploy (ECS)
   #######################################
   backend:
+    if:  ${{ !contains(github.event.head_commit.message, '[skip backend]') && !contains(github.event.head_commit.message, '[skip deploy]') }}
     runs-on: ubuntu-latest
     environment: staging
     env:
@@ -99,6 +100,7 @@ jobs:
   # 🎨 Frontend Build & Deploy (S3 + CF)
   #######################################
   frontend:
+    if:  ${{ !contains(github.event.head_commit.message, '[skip frontend]') && !contains(github.event.head_commit.message, '[skip deploy]') }}
     runs-on: ubuntu-latest
     environment: staging
     env:

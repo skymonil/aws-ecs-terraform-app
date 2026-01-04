@@ -1,9 +1,9 @@
 resource "aws_vpc" "caam_vpc" {
-  cidr_block       = var.vpc_cidr_block
+  cidr_block       = var.vpc.cidr_block
   instance_tenancy = "default"
 
   tags = {
-    Name      = var.vpc_name
+    Name      = var.vpc.name
     ManagedBy = "Terraform"
      Environment = var.environment
   }
@@ -18,7 +18,7 @@ resource "aws_internet_gateway" "internet_gateway" {
 }
 
 resource "aws_subnet" "public_subnet" {
-  for_each = var.public_subnets
+  for_each = var.vpc.public_subnets
 
   vpc_id                  = aws_vpc.caam_vpc.id
   cidr_block              = each.value.cidr

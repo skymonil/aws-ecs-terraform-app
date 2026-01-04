@@ -1,10 +1,10 @@
 resource "aws_s3_bucket" "frontend" {
-  bucket        = var.bucket_name
+  bucket        = var.s3_config.bucket_name
   force_destroy = true
-
+ 
   tags = {
-    Name        = "${var.bucket_name}-${var.environment}"
-    Environment = var.environment
+    Name        = "${var.s3_config.bucket_name}-${var.s3_config.environment}"
+    Environment = var.s3_config.environment
     ManagedBy   = "Terraform"
   }
 }
@@ -31,10 +31,10 @@ resource "aws_s3_bucket_public_access_block" "frontend" {
 }
 
 resource "aws_s3_object" "env_js" {
-  bucket = var.bucket_name
+  bucket = var.s3_config.bucket_name
   key    = "env.js"
   content = templatefile("${path.module}/env.js.tmpl", {
-    BACKEND_URL = var.environment == "prod" ? "https://615915.xyz" : "https://staging.615915.xyz"
+    BACKEND_URL = var.s3_config.environment == "prod" ? "https://615915.xyz" : "https://staging.615915.xyz"
   })
 
   content_type = "application/javascript"

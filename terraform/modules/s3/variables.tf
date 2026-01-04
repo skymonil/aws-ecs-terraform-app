@@ -1,15 +1,15 @@
-variable "bucket_name" {
-  description = "Name of the S3 bucket"
-  type        = string
-}
 
-variable "environment" {
-  description = "Deployment environment (e.g. prod, stage)"
-  type        = string
+variable "s3_config" {
+  description = "S3 bucket configuration"
+  type = object({
+    versioning = bool
+    logging = optional(object({
+      target_bucket = string
+      target_prefix = string
+    }))
+    bucket_name = string
+    backend_url = string
+    environment = string
+    tags = optional(map(string), {})
+  })
 }
-
-variable "backend_url" {
-  type = string
-  description = "URL of the backend which would vary per environment"
-}
-

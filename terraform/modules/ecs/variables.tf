@@ -6,80 +6,68 @@ variable "environment" {
   }
 }
 
-variable "cluster_name" {
-  type = string
-}
-
-variable "ecs_service_name" {
-  type = string
-}
 
 variable "aws_region" {
   type = string
 }
 
-#################################
-# Container
-#################################
 
-variable "container" {
-  description = "ECS container configuration"
+variable "ecs_config" {
+  description = "ECS application configuration"
   type = object({
-    name   = string
-    image  = string
-    port   = number
-    cpu    = number
-    memory = number
+    cluster_name = string
+    service_name = string
+
+     task = object({
+      family          = string
+      cpu             = number
+      memory          = number
+      # Setting defaults means you don't HAVE to put them in .tfvars
+      network_mode    = optional(string, "awsvpc")           
+      compatibilities = optional(list(string), ["FARGATE"])
+    })
+
+    container = object({
+      name   = string
+      image  = string
+      port   = number
+      cpu    = number
+      memory = number
+    })
+
+    
+
+     
+
+    logging = object({
+      log_group = string
+    })
+
+    autoscaling = optional(object({
+      enabled       = bool
+      min           = number
+      max           = number
+      cpu_target    = number
+      memory_target = number
+    }), {
+      enabled = false
+      min     = 1
+      max     = 3
+      cpu_target = 70
+      memory_target = 75
+    })
+
+    secrets = object({
+      mongodb_uri    = string
+      email_id       = string
+      email_password = string
+      jwt_secret     = string
+    })
   })
+
+  sensitive = true
 }
 
-#################################
-# Task definition
-#################################
-
-variable "task" {
-  description = "ECS task-level configuration"
-  type = object({
-    family          = string
-    cpu             = number
-    memory          = number
-    compatibilities = optional(list(string), ["FARGATE"])
-    network_mode    = optional(string, "awsvpc")
-  })
-}
-
-#################################
-# Networking
-#################################
-
-variable "networking" {
-  description = "ECS networking configuration"
-  type = object({
-    subnet_ids         = list(string)
-    security_group_ids = list(string)
-    assign_public_ip   = optional(bool, true)
-  })
-}
-
-#################################
-# Autoscaling
-#################################
-
-variable "autoscaling" {
-  description = "ECS autoscaling configuration"
-  type = object({
-    enabled       = optional(bool, false)
-    min           = optional(number, 1)
-    max           = optional(number, 3)
-    cpu_target    = optional(number, 70)
-    memory_target = optional(number, 75)
-  })
-  default = {}
-}
-
-#################################
-# Load balancer
-#################################
 
 variable "load_balancer" {
   description = "Load balancer integration"
@@ -88,26 +76,17 @@ variable "load_balancer" {
   })
 }
 
-#################################
-# Logging
-#################################
 
-variable "log_group" {
-  description = "CloudWatch log group name"
-  type        = string
-}
-
-#################################
-# Secrets
-#################################
-
-variable "secrets" {
-  description = "Application secrets"
+variable "networking" {
   type = object({
-    mongodb_uri     = string
-    email_id        = string
-    email_password  = string
-    jwt_secret      = string
+    subnet_ids         = list(string)
+    security_group_ids = list(string)
+    assign_public_ip   = bool
   })
-  sensitive = true
 }
+#################################
+# Load balancer
+#################################
+
+
+

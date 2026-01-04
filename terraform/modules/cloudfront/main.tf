@@ -4,12 +4,13 @@ resource "aws_cloudfront_origin_access_control" "s3_oac" {
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
+  
 }
 
 
 resource "aws_cloudfront_distribution" "cdn" {
-  price_class = "PriceClass_100" # US + Europe + India
-  
+  price_class = var.cdn_config.price_class # US + Europe + India
+  is_ipv6_enabled                    = true
   origin {
     domain_name = var.alb_dns_name
     origin_id   = "alb-origin"
@@ -20,10 +21,15 @@ resource "aws_cloudfront_distribution" "cdn" {
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
+    custom_header {
+    name  = "X-From-CloudFront"
+    value = "true"
+  }
+    
   }
 
   logging_config {
-  bucket          = var.logs_bucket_domain_name
+  bucket          = var.cdn_config.logs_bucket_domain_name
   prefix          = "cloudfront/${var.environment}"
   include_cookies = false
 }
@@ -31,7 +37,7 @@ resource "aws_cloudfront_distribution" "cdn" {
 
   origin {
 
-    domain_name = var.s3_bucket_regional_domain_name
+    domain_name = var.regional_bucket_domain_name
     origin_id   = "s3-origin"
 
     origin_access_control_id = aws_cloudfront_origin_access_control.s3_oac.id
@@ -54,7 +60,7 @@ resource "aws_cloudfront_distribution" "cdn" {
 
 
   enabled             = true
-  aliases             = [var.domain_alias]
+  aliases             = [var.cdn_config.domain_alias]
   default_root_object = "index.html"
 
 
@@ -68,11 +74,12 @@ resource "aws_cloudfront_distribution" "cdn" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "s3-origin"
 
-    origin_request_policy_id = var.origin_request_policy_id
-    cache_policy_id          = var.cache_policy_id
+    origin_request_policy_id = var.cdn_config.origin_request_policy_id
+    cache_policy_id          = var.cdn_config.cache_policy_id
 
-    viewer_protocol_policy = var.viewer_protocol_policy
+    viewer_protocol_policy = var.cdn_config.viewer_protocol_policy
     min_ttl                = 0
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
     default_ttl = 86400
     max_ttl     = 31536000
 
@@ -85,7 +92,7 @@ resource "aws_cloudfront_distribution" "cdn" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = var.acm_certificate_arn
+    acm_certificate_arn      = var.cdn_config.acm_certificate_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }
@@ -102,17 +109,37 @@ resource "aws_cloudfront_distribution" "cdn" {
     allowed_methods  = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods   = ["GET", "HEAD", "OPTIONS"]
     viewer_protocol_policy = "redirect-to-https"
-
-    cache_policy_id = var.api_cache_policy_id
-    origin_request_policy_id = var.api_origin_request_policy_id
-
-    min_ttl = 0
-    default_ttl = 0
-    max_ttl = 0
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
+    cache_policy_id = var.cdn_config.api_cache_policy_id
+    origin_request_policy_id = var.cdn_config.api_origin_request_policy_id
 
   
   }
   
+}
+
+resource "aws_cloudfront_response_headers_policy" "security" {
+  name = "${var.environment}-security-headers"
+
+  security_headers_config {
+    content_security_policy {
+      content_security_policy = "default-src 'self';"
+      override = true
+    }
+
+    strict_transport_security {
+      access_control_max_age_sec = 63072000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+
+    xss_protection {
+      protection = true
+      mode_block = true
+      override   = true
+    }
+  }
 }
 
 # Update S3 bucket policy to allow only CloudFront access

@@ -8,120 +8,130 @@ variable "environment" {
   default = "prod"
 }
 
-variable "backend_url" {
-  type        = string
-  description = "URL of the backend which would vary per environment"
+
+
+
+
+
+
+variable "vpc" {
+  type = object({
+    name       = string
+    cidr_block = string
+
+    public_subnets = optional(map(object({
+      cidr = string
+      az   = string
+      tags = optional(map(string), {})
+    })), {})
+
+  })
 }
 
-variable "vpc_name" {
-  description = "Name for the VPC"
-  type        = string
-  validation {
-    condition     = length(var.vpc_name) > 0
-    error_message = "VPC Name cannot be empty"
-  }
+variable "s3_config" {
+  description = "S3 bucket configuration"
+  type = object({
+    versioning = bool
+    logging = optional(object({
+      target_bucket = string
+      target_prefix = string
+    }))
+    bucket_name = string
+    backend_url = string
+    environment = string
+    tags        = optional(map(string), {})
+  })
 }
 
-variable "vpc_cidr_block" {
-  description = "The CIDR block for the VPC"
-  type        = string
-}
-
-variable "public_subnets" {
-  description = "Map of public subnets with CIDR and AZ"
-  type = map(object({
-    cidr = string
-    az   = string
-  }))
-  
-  default = {
-    "public-ap-south-1a" = {
-      cidr = "10.0.1.0/24"
-      az   = "ap-south-1a"
-    }
-    "public-ap-south-1b" = {
-      cidr = "10.0.2.0/24"
-      az   = "ap-south-1b"
-    }
-  }
-}
-
-variable "bucket_name" {
-  description = "name of the s3 bucket"
+variable "cloudfront_prefix_list_id" {
+  description = "The prefix list ID for CloudFront"
   type        = string
 }
 
-variable "acm_certificate_arn" {
-  description = "ARN of the ACM certificate (must cover both domains and be in us-east-1)"
-  type        = string
+
+
+variable "cdn_config" {
+  type = object({
+    domain_alias        = string
+    acm_certificate_arn = string
+
+    # Policies
+    cache_policy_id              = optional(string, "658327ea-f89d-4fab-a63d-7e88639e58f6")
+    origin_request_policy_id     = optional(string, "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf")
+    api_cache_policy_id          = optional(string, "83da9c7e-98b4-4e11-a168-04f0df8e2c65")
+    api_origin_request_policy_id = optional(string, "216adef6-5c7f-47e4-b989-5492eafa07d3")
+
+    # Logging
+    logs_bucket_domain_name = optional(string)
+
+    # Behavior
+    viewer_protocol_policy = optional(string, "redirect-to-https")
+    price_class            = optional(string, "PriceClass_100") # or 200, All
+
+    # Optional features
+    enable_waf      = optional(bool, false)
+    waf_web_acl_arn = optional(string)
+  })
 }
 
-variable "alb_acm_certificate_arn" {
-  description = "ARN of the ACM certificate (must cover both domains and be in us-east-1)"
-  type        = string
+
+
+variable "ecs_config" {
+  description = "ECS application configuration"
+  type = object({
+    cluster_name = string
+    service_name = string
+
+     task = object({
+      family          = string
+      cpu             = number
+      memory          = number
+      # Setting defaults means you don't HAVE to put them in .tfvars
+      network_mode    = optional(string, "awsvpc")           
+      compatibilities = optional(list(string), ["FARGATE"])
+    })
+
+    container = object({
+      name   = string
+      image  = string
+      port   = number
+      cpu    = number
+      memory = number
+    })
+
+    
+
+     
+
+    logging = object({
+      log_group = string
+    })
+
+    autoscaling = optional(object({
+      enabled       = bool
+      min           = number
+      max           = number
+      cpu_target    = number
+      memory_target = number
+    }), {
+      enabled = false
+      min     = 1
+      max     = 3
+      cpu_target = 70
+      memory_target = 75
+    })
+
+    secrets = object({
+      mongodb_uri    = string
+      email_id       = string
+      email_password = string
+      jwt_secret     = string
+    })
+  })
+
+  sensitive = true
 }
 
-variable "domain_alias" {
-  description = "CloudFront alias domain (e.g., '615915.xyz' or 'staging.615915.xyz')"
-  type        = string
-}
-
-variable "ecs_service_name" {
-  description = "Name for the ECS service"
-  type        = string
-}
-
-variable "cluster_name" {
-  description = "Name for the ECS cluster"
-  type        = string
-}
-
-variable "desired_count" {
-  type    = number
-  default = 1
-}
-
-variable "family_name" {
-  description = "Name for the ECS task family"
-  type        = string
-}
-
-variable "image" {
-  description = "url of the docker image"
-  type        = string
-}
-
-# Container-specific variables
-variable "container_memory" {
-  description = "The memory (in MiB) for the container."
-  type        = number
-}
-
-variable "container_port" {
-  description = "The port for the container."
-  type        = number
-}
-
-variable "container_cpu" {
-  description = "The CPU units for the container within the ECS task."
-  type        = number
-}
-
-variable "container_name" {
-  description = "The name for the ECS container."
-  type        = string
-}
-
-# Task-specific variables
-variable "cpu" {
-  description = "The CPU units for the ECS task."
-  type        = number
-}
-
-variable "memory" {
-  description = "The memory (in MiB) for the ECS task."
-  type        = number
-}
 
 # Networking
 variable "assign_public_ip" {
@@ -142,64 +152,12 @@ variable "log_group" {
   type        = string
 }
 
-# Secrets
-variable "mongodb_uri" {
-  description = "Value of the DB URI"
-  type        = string
-  sensitive   = true
-}
 
-variable "email_id" {
-  description = "Email ID for sending emails"
-  type        = string
-  sensitive   = true
-}
 
-variable "email_password" {
-  description = "Email password for sending emails"
-  type        = string
-  sensitive   = true
-}
 
-variable "jwt_secret" {
-  description = "JWT secret for authentication"
-  type        = string
-  sensitive   = true
-}
 
-# CloudFront/CDN variables
-variable "cache_policy_id" {
-  description = "Value of the cache_policy_id for the cdn"
-  type        = string
-}
 
-variable "origin_request_policy_id" {
-  description = "Value of the origin_request_policy_id for the cdn"
-  type        = string
-}
 
-variable "api_cache_policy_id" {
-  description = "api_cache_policy_id"
-  type        = string
-}
-
-variable "api_origin_request_policy_id" {
-  description = "api_origin_request_policy_id"
-  type        = string
-}
-
-# Autoscaling variables
-variable "min_count" {
-  description = "Minimum number of ECS tasks"
-  type        = number
-  default     = 1
-}
-
-variable "max_count" {
-  description = "Maximum number of ECS tasks"
-  type        = number
-  default     = 3
-}
 
 variable "enable_autoscaling" {
   description = "Enable ECS service autoscaling"
@@ -219,19 +177,7 @@ variable "memory_target_value" {
   default     = 75
 }
 
-# S3 bucket for CloudFront logs
-variable "logs_bucket_domain_name" {
-  description = "S3 bucket domain name for CloudFront access logs"
-  type        = string
-}
 
-# Security
-variable "cloudfront_prefix_list_id" {
-  description = "CloudFront prefix list ID for security group rules of ALB"
-  type        = string
-}
 
-variable "viewer_protocol_policy" {
-  type    = string
-  default = "redirect-to-https"
-}
+
+
